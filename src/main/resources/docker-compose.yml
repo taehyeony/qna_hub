@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: qna-mysql
+    restart: always
+    ports:
+      - "3307:3306"  #[Windows 호스트 포트]:[컨테이너 내부 포트]
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    networks:
+      - qna-network
+
+  redis:
+    image: redis:latest
+    container_name: qna-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    networks:
+      - qna-network
+
+networks:
+  qna-network:
+    driver: bridge
