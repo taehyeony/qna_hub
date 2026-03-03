@@ -1,36 +1,61 @@
 package com.taehyeon.qna.config;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class JwtProvider {
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-    private final long tokenValidityInMilliSeconds = 1000L * 60 * 30;
+    @Value("${jwt.secret}")
+    private String secretKey;
 
-    /**
-     * userId로 부터 JWT 토큰 생성
-     * @param userId
-     * @return
-     */
-    public String createToken(UUID userId) {
-        Claims claims = Jwts.claims().setSubject(String.valueOf(userId));
+    @Value("${jwt.access-token-validity}")
+    private long accessTokenValidity;
+
+    @Value("${jwt.refresh-token-validity}")
+    private long refreshTokenValidity;
+
+    private final StringRedisTemplate redisTemplate;
+
+    private Key key;
+
+    @PostConstruct
+    public void init() {
+        // 주입받은 secretKey 문자열을 Key 객체로 변환
+        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String createAccessToken(UUID id) {
+        return createToken(id, accessTokenValidity);
+    }
+
+    public String createRefreshToken(UUID id) {
+        return createToken(id, refreshTokenValidity);
+    }
+
+    private String createToken(UUID id, long validity) {
         Date now = new Date();
-        Date validity = new Date(now.getTime() + tokenValidityInMilliSeconds);
+        Date expiryDate = new Date(now.getTime() + validity);
 
         return Jwts.builder()
-                .setClaims(claims)
+                .setSubject(id.toString())
                 .setIssuedAt(now)
-                .setExpiration(validity)
-                .signWith(key)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -39,7 +64,7 @@ public class JwtProvider {
      * @param token
      * @return
      */
-    public UUID getUserId(String token) {
+    public UUID getSubject(String token) {
         String subject = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
@@ -51,7 +76,7 @@ public class JwtProvider {
     }
 
     /**
-     * JWT 토큰 유효성 검증
+     * JWT 토큰 유효성 검증 (Redis BlackList 체크 포함)
      * @param token
      * @return
      */
@@ -61,7 +86,8 @@ public class JwtProvider {
                     .setSigningKey(key)
                     .build()
                     .parseClaimsJws(token);
-            return true;
+
+            return !redisTemplate.hasKey(token);
         } catch (JwtException | IllegalArgumentException e){
             return false;
         }
