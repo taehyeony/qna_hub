@@ -1,7 +1,6 @@
 package com.taehyeon.qna.service;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
-import com.taehyeon.qna.entity.BaseImmutableTimeEntity;
 import com.taehyeon.qna.entity.User;
 import com.taehyeon.qna.enums.ErrorCode;
 import com.taehyeon.qna.exception.BusinessException;
