@@ -21,7 +21,9 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "mi3065310"]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - qna-network
 
