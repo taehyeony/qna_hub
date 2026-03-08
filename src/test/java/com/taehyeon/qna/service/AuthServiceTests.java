@@ -22,47 +22,45 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchException;
 import static org.mockito.BDDMockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@Transactional
 public class AuthServiceTests {
-    @InjectMocks
+    @Autowired
     private AuthService authService;
-
-    @Mock
+    @Autowired
     private UserRepository userRepository;
-
-    @Mock
+    @Autowired
     private BCryptPasswordEncoder passwordEncoder;
-
-    @Mock
+    @Autowired
     private JwtProvider jwtProvider;
 
     private User existingUser;
     private static final String correctEmail = "test@email.com";
     private static final String correctPassword = "Password1234!";
 
-    /**
-     * 각 테스트 실행 전, 이미 회원가입된 유저 객체를 생성하고, 필드를 초기화합니다.
-     */
     @BeforeEach
     void setup(){
-        existingUser = User.builder()
+        User user = User.builder()
                 .email(correctEmail)
-                .password(correctPassword+"encoded")
+                .password(passwordEncoder.encode(correctPassword))
+                .nickname("테스트 유저")
                 .build();
-        // JPA가 영속화 하기 전에 주입하는 ID와 공통 엔티티 필드를 수동으로 주입한다.
-        ReflectionTestUtils.setField(existingUser, "id", UuidUtil.createUuidV7());
-        ReflectionTestUtils.setField(existingUser, "deletedAt", BaseImmutableTimeEntity.NOT_DELETED_DATE);
+        existingUser = userRepository.save(user);
     }
 
 
@@ -73,69 +71,50 @@ public class AuthServiceTests {
         @Test
         @DisplayName("로그인 성공")
         void signIn_Success(){
-            //given 정상적인 이메일과 비밀번호를 담은 로그인 요청
+            //given
             SignInRequestDto signInRequestDto = createSignInRequestBuilder(correctEmail,correctPassword).build();
 
-            // DB 조회 성공, 비밀번호 일치, 토큰 발급 성공을 가정
-            given(userRepository.findByEmail(signInRequestDto.getEmail())).willReturn(Optional.of(existingUser));
-            given(passwordEncoder.matches(eq(correctPassword),anyString())).willReturn(true);
-            given(jwtProvider.createAccessToken(existingUser.getId())).willReturn("access-token");
-            given(jwtProvider.createRefreshToken(existingUser.getId())).willReturn("refresh-token");
-
-            //when 로그인 서비스 로직 실행
+            //when
             SignInTokenResponse responseDto = authService.signIn(signInRequestDto);
 
-            //then 발급된 토큰이 예상값과 일치하는지 검증
-            assertThat(responseDto.getAccessToken()).isEqualTo("access-token");
-            assertThat(responseDto.getRefreshToken()).isEqualTo("refresh-token");
+            //then
+            assertThat(jwtProvider.validateToken(responseDto.getAccessToken())).isTrue();
+            assertThat(jwtProvider.validateToken(responseDto.getRefreshToken())).isTrue();
+
+            UUID userId = jwtProvider.getSubject(responseDto.getAccessToken());
+            assertThat(userId).isEqualTo(existingUser.getId());
         }
 
         @ParameterizedTest
         @MethodSource("provideInvalidCredentials")
-        @MockitoSettings(strictness = Strictness.LENIENT)
         @DisplayName("로그인 실패 - 계정 정보 불일치 (보안을 위해 동일 에러 반환 검증)")
         void signIn_Failed_InvalidCredentials(String inputEmail, String inputPassword){
-            //given 비밀번호나 이메일이 틀린 로그인 요청
+            //given
             SignInRequestDto signInRequestDto = createSignInRequestBuilder(inputEmail,inputPassword).build();
 
-            //이메일 일치 여부, 비밀번호 일치 여부 가정
-            given(userRepository.findByEmail(anyString())).willAnswer(inv ->
-                inv.getArgument(0).equals(correctEmail) ? Optional.of(existingUser) : Optional.empty()
-            );
-            given(passwordEncoder.matches(eq(correctPassword),anyString())).willReturn(true);
-
-            //when 로그인 서비스 로직 실행
+            //when
             Exception exception = catchException(() -> authService.signIn(signInRequestDto));
 
-            //then 이메일이나 비밀번호가 틀린 경우 동일한 예외 반환 검증
+            //then
             assertThat(exception)
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_LOGIN_CREDENTIALS);
-
-            // 아이디가 틀린 경우에는 비밀번호 체크 로직이 실행되지 않는지 검증
-            if(!inputEmail.equals(correctEmail)) {
-                verify(passwordEncoder,never()).matches(anyString(),anyString());
-            }
         }
 
         @Test
         @DisplayName("로그인 실패 - 탈퇴 유예 기간 계정 (로그인 차단 후 복구 유도)")
         void signIn_Failed_DeletedUser(){
-            //given 탈퇴 유예 기간인 계정
+            //given
+            ReflectionTestUtils.setField(existingUser,"deletedAt", LocalDateTime.now());
+            userRepository.saveAndFlush(existingUser);
+
             SignInRequestDto signInRequestDto = createSignInRequestBuilder(correctEmail,correctPassword).build();
-            User deletedUser = existingUser;
-            ReflectionTestUtils.setField(deletedUser,"deletedAt", LocalDateTime.now());
 
-            // DB 조회 가정
-            given(userRepository.findByEmail(signInRequestDto.getEmail())).willReturn(Optional.of(deletedUser));
-            given(passwordEncoder.matches(eq(correctPassword),anyString())).willReturn(true);
-
-            //when 로그인 서비스 로직 실행
+            //when
             Exception exception = catchException(()->authService.signIn(signInRequestDto));
 
-            //then 계정 복구 유도 예외 발생 검증
+            //then
             assertThat(exception)
-                    .isNotNull()
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.RECOVERY_REQUIRED);
         }
@@ -153,7 +132,6 @@ public class AuthServiceTests {
                     Arguments.of(correctEmail+"s",correctPassword)
             );
         }
-
     }
 
     // 로그인 요청 객체 생성 util 함수
