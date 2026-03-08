@@ -1,6 +1,7 @@
 package com.taehyeon.qna.config;
 
 import com.taehyeon.qna.util.UuidUtil;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,38 +9,36 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
 public class JwtProviderTests {
-    @InjectMocks
+    @Autowired
     private JwtProvider jwtProvider;
-
-    @Mock
+    @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Value("${jwt.secret}")
+    private String secretKey;
 
-    // 테스트용 상수 설정
-    private final String secretKey = "v7-taehyeon-qna-service-very-long-secret-key-2026";
-    private final long accessTokenValidity = 1800000L; // 30분
-    private final long refreshTokenValidity = 604800000L; // 7일
-
-    @BeforeEach
-    void setUp() {
-        // Reflection을 사용하거나, 직접 필드에 값을 꽂아줍니다 (@Value 모사)
-        ReflectionTestUtils.setField(jwtProvider, "secretKey", secretKey);
-        ReflectionTestUtils.setField(jwtProvider, "accessTokenValidity", accessTokenValidity);
-        ReflectionTestUtils.setField(jwtProvider, "refreshTokenValidity", refreshTokenValidity);
-
-        // @PostConstruct 역할을 하는 init() 메서드 호출
-        jwtProvider.init();
+    @AfterEach
+    void tearDown() {
+        redisTemplate.execute((RedisCallback<Object>) connection -> {
+            connection.serverCommands().flushDb();
+            return null;
+        });
     }
 
 
@@ -48,7 +47,6 @@ public class JwtProviderTests {
     void createToken_Success(){
         //given
         UUID userUuid = UuidUtil.createUuidV7();
-        given(redisTemplate.hasKey(anyString())).willReturn(false);
 
         //when
         String accessToken = jwtProvider.createAccessToken(userUuid);
@@ -84,9 +82,9 @@ public class JwtProviderTests {
         //given
         //임의로 유효기간이 0인 Provider 생성
         JwtProvider expiredProvider = new JwtProvider(redisTemplate);
-        ReflectionTestUtils.setField(expiredProvider, "secretKey", secretKey);
-        ReflectionTestUtils.setField(expiredProvider, "accessTokenValidity", -1000L); // 이미 만료됨
-        ReflectionTestUtils.setField(expiredProvider, "redisTemplate", redisTemplate);
+        ReflectionTestUtils.setField(expiredProvider,"secretKey", secretKey);
+        ReflectionTestUtils.setField(expiredProvider, "accessTokenValidity", -1000L);
+        ReflectionTestUtils.setField(expiredProvider, "refreshTokenValidity", -1000L);
         expiredProvider.init();
 
         String expiredToken = expiredProvider.createAccessToken(UuidUtil.createUuidV7());
@@ -105,8 +103,7 @@ public class JwtProviderTests {
         UUID userUuid = UuidUtil.createUuidV7();
         String accessToken = jwtProvider.createAccessToken(userUuid);
 
-        //Redis에 accessToken이 존재한다고 가정
-        given(redisTemplate.hasKey(accessToken)).willReturn(true);
+        redisTemplate.opsForValue().set(accessToken, "logout", 30, TimeUnit.MINUTES);
 
         //when
         boolean isValid = jwtProvider.validateToken(accessToken);
