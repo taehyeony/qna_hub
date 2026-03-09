@@ -1,5 +1,6 @@
 package com.taehyeon.qna.config;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -91,5 +92,15 @@ public class JwtProvider {
         } catch (JwtException | IllegalArgumentException e){
             return false;
         }
+    }
+
+    public long getExpiration(String accessToken) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(accessToken)
+                .getBody();
+
+        return claims.getExpiration().getTime();
     }
 }

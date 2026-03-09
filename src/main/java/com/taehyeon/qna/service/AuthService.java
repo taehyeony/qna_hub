@@ -14,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -25,11 +27,6 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
 
-    /**
-     * 로그인
-     * @param signInRequestDto
-     * @return
-     */
     public SignInTokenResponse signIn(SignInRequestDto signInRequestDto) {
         
         //1. 이메일 존재 확인
@@ -54,12 +51,30 @@ public class AuthService {
         redisTemplate.opsForValue().set(
                 "RT:" + user.getId(),
                 refreshToken,
-                14, TimeUnit.DAYS
+                14,
+                TimeUnit.DAYS
         );
 
         return SignInTokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
+    }
+
+    public void logout(String accessToken, UUID userId) {
+        // AccessToken 블랙리스트 등록
+        if(jwtProvider.validateToken(accessToken)){
+            long expiration = jwtProvider.getExpiration(accessToken);
+            long now = new Date().getTime();
+            long remainTime = expiration - now;
+
+            redisTemplate.opsForValue().set(accessToken, "blacklist", remainTime, TimeUnit.MILLISECONDS);
+        }
+
+        // Redis에 저장된 RefreshToken 삭제
+        String redisKey = "RT:" + userId.toString();
+        if(redisTemplate.hasKey(redisKey)){
+            redisTemplate.delete(redisKey);
+        }
     }
 }

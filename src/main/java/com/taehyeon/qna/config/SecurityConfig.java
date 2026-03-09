@@ -29,8 +29,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable) //CSRF 비활성화
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/auth/signout").authenticated()
                         .anyRequest().permitAll()
-                );
+                )
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

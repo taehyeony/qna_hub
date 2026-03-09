@@ -103,7 +103,7 @@ public class JwtProviderTests {
         UUID userUuid = UuidUtil.createUuidV7();
         String accessToken = jwtProvider.createAccessToken(userUuid);
 
-        redisTemplate.opsForValue().set(accessToken, "logout", 30, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(accessToken, "blacklist", 30, TimeUnit.MINUTES);
 
         //when
         boolean isValid = jwtProvider.validateToken(accessToken);

@@ -24,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +50,8 @@ public class AuthServiceTests {
     private BCryptPasswordEncoder passwordEncoder;
     @Autowired
     private JwtProvider jwtProvider;
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     private User existingUser;
     private static final String correctEmail = "test@email.com";
@@ -62,7 +66,6 @@ public class AuthServiceTests {
                 .build();
         existingUser = userRepository.save(user);
     }
-
 
     @Nested
     @DisplayName("로그인 테스트")
@@ -131,6 +134,27 @@ public class AuthServiceTests {
                     Arguments.of(correctEmail,correctPassword + "s"),
                     Arguments.of(correctEmail+"s",correctPassword)
             );
+        }
+    }
+
+    @Nested
+    @DisplayName("로그아웃 테스트")
+    class SignOutTests {
+
+        @Test
+        @DisplayName("로그아웃 성공")
+        void signOut_Success(){
+            //given
+            SignInRequestDto signInRequestDto = createSignInRequestBuilder(correctEmail,correctPassword).build();
+            SignInTokenResponse signInTokenResponse = authService.signIn(signInRequestDto);
+            String accessToken = signInTokenResponse.getAccessToken();
+
+            //when
+            authService.logout(accessToken, existingUser.getId());
+
+            //then
+            assertThat(redisTemplate.hasKey(accessToken)).isTrue();
+            assertThat(jwtProvider.validateToken(accessToken)).isFalse();
         }
     }
 

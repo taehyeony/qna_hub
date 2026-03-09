@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     // 공통
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "올바르지 않은 입력값입니다."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "C002", "토큰이 만료되었거나 유효하지 않습니다."),
 
     // 유저 관련
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "U001", "이미 존재하는 이메일입니다."),
