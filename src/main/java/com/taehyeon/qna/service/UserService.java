@@ -1,13 +1,13 @@
 package com.taehyeon.qna.service;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
+import com.taehyeon.qna.dto.response.UserSimpleProfileDto;
 import com.taehyeon.qna.entity.BaseImmutableTimeEntity;
 import com.taehyeon.qna.entity.User;
 import com.taehyeon.qna.enums.ErrorCode;
 import com.taehyeon.qna.exception.BusinessException;
 import com.taehyeon.qna.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.parameters.P;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,5 +60,20 @@ public class UserService {
                 .build();
 
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public UserSimpleProfileDto getMySimpleProfile(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return UserSimpleProfileDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .nickname(user.getNickname())
+                .point(user.getPoint())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
 }
