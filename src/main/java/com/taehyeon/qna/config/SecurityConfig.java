@@ -31,8 +31,13 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable) //기본 HTTP 인증 비활성화
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/signout", "/api/v1/user/myprofile").authenticated()
-                        .anyRequest().permitAll()
+                        //1. 인증이 필요한 경로
+                        .requestMatchers("/api/v1/auth/signout", "/api/v1/user/me").authenticated()
+                        //2. 누구나 접근 가능한 경로
+                        .requestMatchers("/api/v1/auth/signup","/api/v1/user/signin").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        //3. 나머지는 접근 제한
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 
