@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.file.attribute.UserPrincipal;
 import java.util.UUID;
 
 @RestController
@@ -29,7 +28,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/signin")
-    public ResponseEntity<ApiResponse<SignInResponseDto>> signUp(
+    public ResponseEntity<ApiResponse<SignInResponseDto>> signIn(
             @RequestBody SignInRequestDto signInRequestDto,
             HttpServletResponse response){
         SignInTokenResponse tokens = authService.signIn(signInRequestDto);
