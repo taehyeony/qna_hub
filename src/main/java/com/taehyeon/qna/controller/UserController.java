@@ -26,7 +26,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/myprofile")
+    @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserSimpleProfileDto>> getMySimpleProfile(
             @AuthenticationPrincipal UUID userId
     ){
