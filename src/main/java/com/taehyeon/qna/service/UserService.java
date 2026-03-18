@@ -1,6 +1,8 @@
 package com.taehyeon.qna.service;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
+import com.taehyeon.qna.dto.request.UpdateSimpleProfileRequestDto;
+import com.taehyeon.qna.dto.response.UpdateSimpleProfileResponseDto;
 import com.taehyeon.qna.dto.response.UserSimpleProfileDto;
 import com.taehyeon.qna.entity.BaseImmutableTimeEntity;
 import com.taehyeon.qna.entity.User;
@@ -75,5 +77,21 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    @Transactional
+    public UpdateSimpleProfileResponseDto updateSimpleProfile(UUID userId, UpdateSimpleProfileRequestDto requestDto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        String newNickname = requestDto.getNickname();
+        if(!user.getNickname().equals(newNickname)){
+            if(userRepository.existsByNickname(newNickname)){
+                throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+            }
+            user.updateNickname(newNickname);
+        }
+
+        return UpdateSimpleProfileResponseDto.from(user);
     }
 }

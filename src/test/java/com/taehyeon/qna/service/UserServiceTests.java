@@ -1,6 +1,8 @@
 package com.taehyeon.qna.service;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
+import com.taehyeon.qna.dto.request.UpdateSimpleProfileRequestDto;
+import com.taehyeon.qna.dto.response.UpdateSimpleProfileResponseDto;
 import com.taehyeon.qna.dto.response.UserSimpleProfileDto;
 import com.taehyeon.qna.entity.User;
 import com.taehyeon.qna.enums.ErrorCode;
@@ -176,6 +178,79 @@ public class UserServiceTests {
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
         }
+    }
+
+    @Nested
+    @DisplayName("회원 일반 정보 수정")
+    class UpdateSimpleProfile {
+        private User savedUser;
+
+        @BeforeEach
+        void setup(){
+            User user = User.builder()
+                    .email("test@test.com")
+                    .password(passwordEncoder.encode("Password123!"))
+                    .nickname("테스트유저1")
+                    .build();
+            savedUser = userRepository.save(user);
+        }
+
+        @Test
+        @DisplayName("회원 일반 정보 수정 성공 - 닉네임 변경")
+        void updateSimpleProfile_Success(){
+            //given
+            String newNickname = "새로운 닉네임";
+            UpdateSimpleProfileRequestDto requestDto = UpdateSimpleProfileRequestDto.builder()
+                    .nickname(newNickname)
+                    .build();
+
+            //when
+            UpdateSimpleProfileResponseDto responseDto = userService.updateSimpleProfile(savedUser.getId(), requestDto);
+
+            //then
+            assertThat(responseDto.getNickname()).isEqualTo(newNickname);
+            User updatedUser = userRepository.findById(savedUser.getId()).get();
+            assertThat(updatedUser.getNickname()).isEqualTo(newNickname);
+        }
+
+        @Test
+        @DisplayName("회원 일반 정보 수정 성공 - 기존과 동일한 닉네임으로 변경")
+        void updateSimpleProfile_Success_SameAsOriginal(){
+            //given
+            String sameNickname = "테스트유저1";
+            UpdateSimpleProfileRequestDto requestDto = UpdateSimpleProfileRequestDto.builder()
+                    .nickname(sameNickname)
+                    .build();
+
+            //when
+            UpdateSimpleProfileResponseDto responseDto = userService.updateSimpleProfile(savedUser.getId(), requestDto);
+
+            //then
+            assertThat(responseDto.getNickname()).isEqualTo(sameNickname);
+        }
+
+        @Test
+        @DisplayName("회원 일반 정보 수정 실패 - 중복된 닉네임으로 수정")
+        void updateSimpleProfile_Failed_DuplicateNickname(){
+            //given
+            String duplicateNickname = "중복 닉네임";
+            User otherUser = User.builder()
+                    .email("other@test.com")
+                    .password(passwordEncoder.encode("Password123!"))
+                    .nickname(duplicateNickname)
+                    .build();
+            userRepository.save(otherUser);
+
+            UpdateSimpleProfileRequestDto requestDto = UpdateSimpleProfileRequestDto.builder()
+                    .nickname(duplicateNickname)
+                    .build();
+
+            //when & then
+            assertThatThrownBy(() -> userService.updateSimpleProfile(savedUser.getId(), requestDto))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_NICKNAME);
+        }
+
     }
 
 }

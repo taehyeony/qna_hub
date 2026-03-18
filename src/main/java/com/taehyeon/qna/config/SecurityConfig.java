@@ -34,7 +34,7 @@ public class SecurityConfig {
                         //1. 인증이 필요한 경로
                         .requestMatchers("/api/v1/auth/signout", "/api/v1/user/me").authenticated()
                         //2. 누구나 접근 가능한 경로
-                        .requestMatchers("/api/v1/auth/signup","/api/v1/user/signin").permitAll()
+                        .requestMatchers("/api/v1/user/signup","/api/v1/auth/signin").permitAll()
                         .requestMatchers("/error").permitAll()
                         //3. 나머지는 접근 제한
                         .anyRequest().authenticated()
