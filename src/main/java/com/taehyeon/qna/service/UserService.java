@@ -1,6 +1,7 @@
 package com.taehyeon.qna.service;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
+import com.taehyeon.qna.dto.request.UpdatePasswordRequestDto;
 import com.taehyeon.qna.dto.request.UpdateSimpleProfileRequestDto;
 import com.taehyeon.qna.dto.response.UpdateSimpleProfileResponseDto;
 import com.taehyeon.qna.dto.response.UserSimpleProfileDto;
@@ -93,5 +94,22 @@ public class UserService {
         }
 
         return UpdateSimpleProfileResponseDto.from(user);
+    }
+
+    @Transactional
+    public void updatePassword(UUID id, UpdatePasswordRequestDto updatePasswordRequestDto) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if(!updatePasswordRequestDto.getNewPassword().equals(updatePasswordRequestDto.getNewPasswordCheck())){
+            throw new BusinessException(ErrorCode.PASSWORD_CHECK_MISMATCH);
+        }
+
+        if(!passwordEncoder.matches(updatePasswordRequestDto.getCurrentPassword(), user.getPassword())){
+            throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
+        }
+
+        String encryptedPassword = passwordEncoder.encode(updatePasswordRequestDto.getNewPassword());
+        user.updatePassword(encryptedPassword);
     }
 }

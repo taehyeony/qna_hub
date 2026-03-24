@@ -17,6 +17,7 @@ public enum ErrorCode {
     RECOVERY_REQUIRED(HttpStatus.FORBIDDEN, "U003", "탈퇴 유예 기간인 계정입니다. 복구 페이지로 이동하세요."),
     PASSWORD_CHECK_MISMATCH(HttpStatus.BAD_REQUEST,"U004", "비밀번호와 비밀번호 확인이 일치하지 않습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND,"U005","존재하지 않는 사용자입니다."),
+    INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST,"U006","현재 비밀번호가 일치하지 않습니다."),
 
     // 로그인
     INVALID_LOGIN_CREDENTIALS(HttpStatus.UNAUTHORIZED,"A001","로그인에 실패하였습니다.");

@@ -1,6 +1,7 @@
 package com.taehyeon.qna.controller;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
+import com.taehyeon.qna.dto.request.UpdatePasswordRequestDto;
 import com.taehyeon.qna.dto.request.UpdateSimpleProfileRequestDto;
 import com.taehyeon.qna.dto.response.ApiResponse;
 import com.taehyeon.qna.dto.response.UpdateSimpleProfileResponseDto;
@@ -45,5 +46,13 @@ public class UserController {
     ){
         UpdateSimpleProfileResponseDto response = userService.updateSimpleProfile(userId, requestDto);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/me/password")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+            @AuthenticationPrincipal UUID userId,
+            @RequestBody @Valid UpdatePasswordRequestDto requestDto
+    ){
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null));
     }
 }

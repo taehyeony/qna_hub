@@ -1,6 +1,7 @@
 package com.taehyeon.qna.service;
 
 import com.taehyeon.qna.dto.request.SignUpRequestDto;
+import com.taehyeon.qna.dto.request.UpdatePasswordRequestDto;
 import com.taehyeon.qna.dto.request.UpdateSimpleProfileRequestDto;
 import com.taehyeon.qna.dto.response.UpdateSimpleProfileResponseDto;
 import com.taehyeon.qna.dto.response.UserSimpleProfileDto;
@@ -251,6 +252,76 @@ public class UserServiceTests {
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DUPLICATE_NICKNAME);
         }
 
+    }
+    
+    
+    @Nested
+    @DisplayName("비밀번호 수정")
+    class UpdatePassword {
+        private User savedUser;
+
+        @BeforeEach
+        void setUp(){
+            User user = User.builder()
+                    .email("test@test.com")
+                    .password(passwordEncoder.encode("Password123!"))
+                    .nickname("테스트유저1")
+                    .build();
+            savedUser = userRepository.save(user);
+        }
+
+        @Test
+        @DisplayName("비밀번호 수정 성공")
+        void updatePassword_Success(){
+            //given
+            String newPassword = "newPassword!123";
+            UpdatePasswordRequestDto updatePasswordRequestDto = UpdatePasswordRequestDto.builder()
+                    .currentPassword("Password123!")
+                    .newPassword(newPassword)
+                    .newPasswordCheck(newPassword)
+                    .build();
+
+            //when
+            userService.updatePassword(savedUser.getId(),updatePasswordRequestDto);
+
+            //then
+            User updatedUser = userRepository.findById(savedUser.getId()).get();
+            assertThat(passwordEncoder.matches(newPassword, updatedUser.getPassword())).isTrue();
+        }
+
+        @Test
+        @DisplayName("비밀번호 수정 실패 - 현재 사용중인 비밀번호가 일치하지 않는 경우")
+        void updatePassword_Failed_WrongCurrentPassword(){
+            //given
+            String newPassword = "newPassword!123";
+            UpdatePasswordRequestDto updatePasswordRequestDto = UpdatePasswordRequestDto.builder()
+                    .currentPassword("password123!")
+                    .newPassword(newPassword)
+                    .newPasswordCheck(newPassword)
+                    .build();
+
+            //when & then
+            assertThatThrownBy(() -> userService.updatePassword(savedUser.getId(),updatePasswordRequestDto))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_CURRENT_PASSWORD);
+        }
+
+        @Test
+        @DisplayName("비밀번호 수정 실패 - 새 비밀번호와 비밀번호가 일치하지 않는 경우")
+        void updatePassword_Failed_PasswordCheckMismatch(){
+            //given
+            String newPassword = "newPassword!123";
+            UpdatePasswordRequestDto updatePasswordRequestDto = UpdatePasswordRequestDto.builder()
+                    .currentPassword("Password123!")
+                    .newPassword(newPassword)
+                    .newPasswordCheck("wrongPasswordCheck123")
+                    .build();
+
+            //when & then
+            assertThatThrownBy(() -> userService.updatePassword(savedUser.getId(),updatePasswordRequestDto))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PASSWORD_CHECK_MISMATCH);
+        }
     }
 
 }
